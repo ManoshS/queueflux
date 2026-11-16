@@ -47,13 +47,13 @@ public class SimulationRunRepository {
     public void markCompleted(UUID id, SimulationResult result) {
         jdbc.update("""
                 UPDATE simulation_runs SET status='COMPLETED', completed_at=?, result_json=CAST(? AS JSONB), error_message=NULL,
-                virtual_time_micros=?, processed_events=? WHERE id=?
+                virtual_time_micros=?, processed_events=? WHERE id=? AND status='RUNNING'
                 """, Timestamp.from(Instant.now()), toJson(result), result.simulationDurationMicros(), result.processedEvents(), id);
     }
 
     public void markFailed(UUID id, String message) {
         jdbc.update("""
-                UPDATE simulation_runs SET status='FAILED', completed_at=?, error_message=? WHERE id=?
+                UPDATE simulation_runs SET status='FAILED', completed_at=?, error_message=? WHERE id=? AND status='RUNNING'
                 """, Timestamp.from(Instant.now()), safeMessage(message), id);
     }
 
