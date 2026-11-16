@@ -1,5 +1,11 @@
 # Scenario JSON Format (schemaVersion 1)
 
+A machine-readable JSON Schema for this format lives at
+[`schemas/v1/scenario.json`](../schemas/v1/scenario.json).
+Point your editor at it via `"$schema": "https://raw.githubusercontent.com/nishanthn99/queueflux/main/schemas/v1/scenario.json"`
+to get inline validation and autocomplete in VS Code, IntelliJ, and any other
+editor that supports [JSON Schema](https://json-schema.org/).
+
 A scenario is a complete description of a virtual-time queue experiment. The current parser accepts the fields below. Optional policy fields default to disabled behaviour when omitted.
 
 ## Top level

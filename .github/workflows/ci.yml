@@ -38,6 +38,19 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+  schema-validation:
+    name: Validate example scenarios against JSON Schema
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: "22"
+      - name: Validate examples against schema v1
+        run: npx --yes ajv-cli@5 validate --spec=draft7 --all-errors -s schemas/v1/scenario.json -d "examples/**/scenario.json"
+
   frontend:
     name: Frontend tests, lint, build and coverage
     runs-on: ubuntu-latest
