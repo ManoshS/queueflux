@@ -1,4 +1,5 @@
 # QueueFlux repository-wide code ownership.
-# CODEOWNERS requests review from this account for all files.
-# Enforce this with a ruleset requiring code-owner approval on main.
-* @nishanthn99
+# GitHub requests review from the owners listed below for changes across the repository.
+# Configure the main-branch ruleset to require at least one approval and, if desired,
+# require review from Code Owners before merging.
+* @nishanthn99 @jeevith777 @Smriddhi-jain
