@@ -51,8 +51,6 @@ jobs:
       - name: Validate examples against schema v1
         run: npx --yes ajv-cli@5 validate --spec=draft7 --all-errors -s schemas/v1/scenario.json -d "examples/**/scenario.json"
 
-  frontend:
-    name: Frontend tests, lint, build and coverage
   cli:
     name: CLI tests
     runs-on: ubuntu-latest
@@ -73,7 +71,8 @@ jobs:
         run: npm test
 
   frontend:
-    name: Frontend tests, lint, build and coverage    runs-on: ubuntu-latest
+    name: Frontend tests, lint, build and coverage
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
       run:
