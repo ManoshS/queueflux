@@ -1,0 +1,305 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/nishanthn99/queueflux/main/schemas/v1/scenario.json",
+  "title": "QueueFlux Scenario v1",
+  "description": "Schema for QueueFlux simulation scenario files (schemaVersion 1).",
+  "type": "object",
+  "required": ["schemaVersion", "name", "durationMicros", "seed", "queues", "workerPools", "workloads"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1,
+      "description": "Must be 1. A breaking change to the scenario format requires a new schema version."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable label for this scenario."
+    },
+    "durationMicros": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Total virtual simulation time in microseconds."
+    },
+    "seed": {
+      "type": "integer",
+      "description": "Root random seed; identical seeds produce identical results."
+    },
+    "queues": {
+      "type": "array",
+      "minItems": 1,
+      "description": "One or more queue definitions. Each queue must have exactly one worker pool and at least one workload.",
+      "items": { "$ref": "#/$defs/QueueDefinition" }
+    },
+    "workerPools": {
+      "type": "array",
+      "minItems": 1,
+      "description": "One or more worker-pool definitions. Currently exactly one pool per queue is supported.",
+      "items": { "$ref": "#/$defs/WorkerPoolDefinition" }
+    },
+    "workloads": {
+      "type": "array",
+      "minItems": 1,
+      "description": "One or more workload definitions. Multiple workloads may target the same queue.",
+      "items": { "$ref": "#/$defs/WorkloadDefinition" }
+    }
+  },
+  "$defs": {
+    "QueueDefinition": {
+      "type": "object",
+      "required": ["id", "maxDepth", "discipline"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Unique queue identifier within this scenario."
+        },
+        "maxDepth": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum number of jobs waiting for a worker slot. Jobs exceeding this limit are rejected."
+        },
+        "discipline": {
+          "$ref": "#/$defs/SchedulingDiscipline",
+          "description": "Order in which waiting jobs are dispatched to workers."
+        },
+        "retryPolicy": {
+          "$ref": "#/$defs/RetryPolicy",
+          "description": "Retry rules for transient processing failures. Omit to disable retries."
+        },
+        "rateLimit": {
+          "$ref": "#/$defs/RateLimitPolicy",
+          "description": "Global token-bucket rate limiter for job starts on this queue. Omit for unlimited."
+        }
+      }
+    },
+    "SchedulingDiscipline": {
+      "type": "string",
+      "enum": ["FIFO", "PRIORITY"],
+      "description": "FIFO dispatches jobs in arrival order; PRIORITY dispatches highest-priority jobs first."
+    },
+    "RetryPolicy": {
+      "type": "object",
+      "required": ["maxAttempts", "initialBackoffMicros", "maxBackoffMicros", "multiplier", "jitterFraction"],
+      "additionalProperties": false,
+      "description": "Exponential back-off retry policy. maxAttempts: 1 disables retries.",
+      "properties": {
+        "maxAttempts": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "description": "Total number of attempts including the first. 1 disables retries."
+        },
+        "initialBackoffMicros": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Delay before the first retry in microseconds."
+        },
+        "maxBackoffMicros": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Upper bound on the exponential back-off delay in microseconds. Must be >= initialBackoffMicros."
+        },
+        "multiplier": {
+          "type": "number",
+          "minimum": 1,
+          "description": "Exponential multiplier applied to the backoff after each failed attempt."
+        },
+        "jitterFraction": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Symmetric deterministic jitter fraction applied to each backoff interval."
+        }
+      }
+    },
+    "RateLimitPolicy": {
+      "type": "object",
+      "required": ["ratePerSecond", "burstCapacity"],
+      "additionalProperties": false,
+      "description": "Token-bucket rate limiter applied globally to job starts on one queue.",
+      "properties": {
+        "ratePerSecond": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Token refill rate in jobs per second. 0 disables rate limiting."
+        },
+        "burstCapacity": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum token count and initial bucket fill. Must be >= 1 even when rate limiting is disabled."
+        }
+      }
+    },
+    "WorkerPoolDefinition": {
+      "type": "object",
+      "required": ["id", "queueId", "workerCount", "concurrencyPerWorker", "serviceTime"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Unique worker-pool identifier within this scenario."
+        },
+        "queueId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "ID of the queue this pool drains."
+        },
+        "workerCount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of workers in the pool."
+        },
+        "concurrencyPerWorker": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of jobs each worker can process simultaneously."
+        },
+        "serviceTime": {
+          "$ref": "#/$defs/ServiceTimeModel",
+          "description": "Distribution governing how long each job takes to process."
+        },
+        "failureProbability": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Probability that any single processing attempt fails transiently. Default 0."
+        },
+        "outages": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/WorkerOutage" },
+          "description": "Planned intervals during which some workers stop accepting new jobs."
+        }
+      }
+    },
+    "ServiceTimeModel": {
+      "type": "object",
+      "required": ["distribution"],
+      "additionalProperties": false,
+      "description": "Service-time distribution for jobs processed by a worker pool.",
+      "properties": {
+        "distribution": {
+          "$ref": "#/$defs/ServiceDistribution"
+        },
+        "constantMicros": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Fixed service time in microseconds. Required when distribution is CONSTANT."
+        },
+        "meanMicros": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Mean service time in microseconds. Required when distribution is EXPONENTIAL."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "distribution": { "const": "CONSTANT" } },
+            "required": ["distribution"]
+          },
+          "then": { "required": ["constantMicros"] }
+        },
+        {
+          "if": {
+            "properties": { "distribution": { "const": "EXPONENTIAL" } },
+            "required": ["distribution"]
+          },
+          "then": { "required": ["meanMicros"] }
+        }
+      ]
+    },
+    "ServiceDistribution": {
+      "type": "string",
+      "enum": ["CONSTANT", "EXPONENTIAL"],
+      "description": "CONSTANT uses a fixed duration; EXPONENTIAL samples from a memoryless distribution."
+    },
+    "WorkloadDefinition": {
+      "type": "object",
+      "required": ["id", "queueId", "startMicros", "endMicros", "arrivals"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Unique workload identifier within this scenario."
+        },
+        "queueId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "ID of the queue jobs are submitted to."
+        },
+        "startMicros": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Virtual time at which this workload begins generating jobs."
+        },
+        "endMicros": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Virtual time at which this workload stops generating jobs. Must be > startMicros and <= durationMicros."
+        },
+        "arrivals": {
+          "$ref": "#/$defs/ArrivalModel",
+          "description": "Arrival process governing how frequently jobs appear."
+        },
+        "priority": {
+          "type": "integer",
+          "description": "Job priority for PRIORITY-discipline queues. Higher values dispatch first. Default 0."
+        }
+      }
+    },
+    "ArrivalModel": {
+      "type": "object",
+      "required": ["mode", "ratePerSecond"],
+      "additionalProperties": false,
+      "description": "Arrival process for a workload.",
+      "properties": {
+        "mode": {
+          "$ref": "#/$defs/ArrivalMode"
+        },
+        "ratePerSecond": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Average job arrival rate in jobs per second. Must be > 0."
+        }
+      }
+    },
+    "ArrivalMode": {
+      "type": "string",
+      "enum": ["CONSTANT", "POISSON"],
+      "description": "CONSTANT produces perfectly spaced arrivals; POISSON produces exponentially distributed inter-arrivals."
+    },
+    "WorkerOutage": {
+      "type": "object",
+      "required": ["id", "startMicros", "endMicros", "unavailableWorkers"],
+      "additionalProperties": false,
+      "description": "A planned interval during which some workers stop accepting new jobs.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Unique outage identifier within the worker pool."
+        },
+        "startMicros": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Virtual time at which the outage begins."
+        },
+        "endMicros": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Virtual time at which the outage ends. Must be > startMicros."
+        },
+        "unavailableWorkers": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of workers in the pool that stop accepting new jobs during this interval."
+        }
+      }
+    }
+  }
+}
