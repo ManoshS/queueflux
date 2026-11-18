@@ -41,6 +41,8 @@ public final class DefaultSimulationEngine implements SimulationEngine {
         final Map<String, Integer> activeOutages = new HashMap<>();
         final List<Long> waits = new ArrayList<>();
         final List<Long> latencies = new ArrayList<>();
+        final List<Long> postWarmUpWaits = new ArrayList<>();
+        final List<Long> postWarmUpLatencies = new ArrayList<>();
         double tokens;
         long lastRefillMicros;
         long nextDispatchMicros = -1;
@@ -207,6 +209,10 @@ public final class DefaultSimulationEngine implements SimulationEngine {
                         queue.completed++;
                         queue.waits.add(job.accumulatedWaitMicros);
                         queue.latencies.add(clock.nowMicros() - job.arrivalMicros);
+                        if (clock.nowMicros() > request.warmUpMicros()) {
+                            queue.postWarmUpWaits.add(job.accumulatedWaitMicros);
+                            queue.postWarmUpLatencies.add(clock.nowMicros() - job.arrivalMicros);
+                        }
                         addTrace(trace, maxTrace, new TraceEvent(clock.nowMicros(), "JOB_COMPLETED", job.id, "Processing completed"));
                     }
                     dispatch(queue, scheduler, clock.nowMicros(), jobs, trace, maxTrace, scenario.seed());
@@ -261,6 +267,7 @@ public final class DefaultSimulationEngine implements SimulationEngine {
         long totalCompleted = 0, totalRejected = 0, totalRetried = 0, totalFailed = 0, totalDead = 0;
         long waitingAtEnd = 0, activeAtEnd = 0;
         List<Long> waits = new ArrayList<>(), latencies = new ArrayList<>();
+        List<Long> postWarmUpWaits = new ArrayList<>(), postWarmUpLatencies = new ArrayList<>();
         List<QueueMetrics> queueMetrics = new ArrayList<>();
         for (QueueRuntime queue : queues.values()) {
             queue.accountUntil(scenario.durationMicros());
@@ -276,6 +283,8 @@ public final class DefaultSimulationEngine implements SimulationEngine {
             activeAtEnd += queue.active;
             waits.addAll(queue.waits);
             latencies.addAll(queue.latencies);
+            postWarmUpWaits.addAll(queue.postWarmUpWaits);
+            postWarmUpLatencies.addAll(queue.postWarmUpLatencies);
             long queueDelayed = jobs.values().stream().filter(job ->
                     job.queueId.equals(queue.definition.id()) && job.status == JobStatus.DELAYED).count();
             queue.waitingAtEnd = queue.waiting.size();
@@ -289,14 +298,20 @@ public final class DefaultSimulationEngine implements SimulationEngine {
                     capacityMicros == 0 ? 0 : Math.min(1d, queue.busySlotMicros / (double) capacityMicros)));
         }
         double durationSeconds = scenario.durationMicros() / 1_000_000d;
+        double steadySeconds = (scenario.durationMicros() - request.warmUpMicros()) / 1_000_000d;
         double utilization = totalCapacity == 0 ? 0 : Math.min(1d, totalBusy / (double) totalCapacity);
+        long postWarmUpCompleted = postWarmUpLatencies.size();
         SimulationResult result = new SimulationResult(
-                scenario.name(), scenario.seed(), scenario.durationMicros(), processedEvents,
-                generated[0], accepted[0], totalCompleted, totalRejected, totalRetried, totalFailed, totalDead,
-                waitingAtEnd, pendingRetries[0], activeAtEnd, scenarioPeakBacklog,
+                scenario.name(), scenario.seed(), scenario.durationMicros(), request.warmUpMicros(),
+                processedEvents, generated[0], accepted[0], totalCompleted, totalRejected, totalRetried,
+                totalFailed, totalDead, waitingAtEnd, pendingRetries[0], activeAtEnd, scenarioPeakBacklog,
                 durationSeconds == 0 ? 0 : totalCompleted / durationSeconds,
                 mean(waits), mean(latencies), percentile(latencies, 0.95), percentile(latencies, 0.99),
-                utilization, queueMetrics, trace);
+                utilization,
+                postWarmUpCompleted,
+                steadySeconds == 0 ? 0 : postWarmUpCompleted / steadySeconds,
+                mean(postWarmUpWaits), percentile(postWarmUpLatencies, 0.95), percentile(postWarmUpLatencies, 0.99),
+                queueMetrics, trace);
         observer.onProgress(new SimulationProgress(scenario.durationMicros(), processedEvents, processedEvents));
         return result;
     }
