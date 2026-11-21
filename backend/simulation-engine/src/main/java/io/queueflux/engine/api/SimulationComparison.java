@@ -5,6 +5,7 @@ import java.util.List;
 public record SimulationComparison(
         int replications,
         long seedStride,
+        long warmUpMicros,
         double meanThroughputPerSecond,
         double standardDeviationThroughputPerSecond,
         double meanP95LatencyMicros,
@@ -13,6 +14,9 @@ public record SimulationComparison(
         double meanPeakBacklog,
         double meanRejectedJobs,
         double meanWorkerUtilization,
+        ConfidenceInterval ciThroughput,
+        ConfidenceInterval ciP95Latency,
+        ConfidenceInterval ciP99Latency,
         List<ReplicationSummary> runs) {
     public SimulationComparison { runs = List.copyOf(runs); }
 

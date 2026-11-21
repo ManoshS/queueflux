@@ -72,19 +72,26 @@ public class SimulationController {
             long seed = Math.addExact(base.seed(), Math.multiplyExact((long) i, request.seedStride()));
             ScenarioDefinition replicated = new ScenarioDefinition(base.schemaVersion(), base.name(), base.durationMicros(),
                     seed, base.queues(), base.workerPools(), base.workloads());
-            SimulationResult result = engine.run(new SimulationRequest(replicated, 250_000, 1_000_000, 0));
-            summaries.add(new SimulationComparison.ReplicationSummary(seed, result.throughputPerSecond(),
-                    result.p95EndToEndLatencyMicros(), result.p99EndToEndLatencyMicros(), result.peakBacklog(),
-                    result.rejectedJobs(), result.workerUtilization()));
+            SimulationResult result = engine.run(new SimulationRequest(replicated, 250_000, 1_000_000, 0, request.warmUpMicros()));
+            // Use post-warmup metrics when warmUp is set, otherwise whole-run metrics
+            double throughput = request.warmUpMicros() > 0 ? result.postWarmUpThroughputPerSecond() : result.throughputPerSecond();
+            double p95 = request.warmUpMicros() > 0 ? result.postWarmUpP95LatencyMicros() : result.p95EndToEndLatencyMicros();
+            double p99 = request.warmUpMicros() > 0 ? result.postWarmUpP99LatencyMicros() : result.p99EndToEndLatencyMicros();
+            summaries.add(new SimulationComparison.ReplicationSummary(seed, throughput, p95, p99,
+                    result.peakBacklog(), result.rejectedJobs(), result.workerUtilization()));
         }
         double[] throughput = summaries.stream().mapToDouble(SimulationComparison.ReplicationSummary::throughputPerSecond).toArray();
         double[] p95 = summaries.stream().mapToDouble(SimulationComparison.ReplicationSummary::p95LatencyMicros).toArray();
-        return new SimulationComparison(request.replications(), request.seedStride(),
+        double[] p99 = summaries.stream().mapToDouble(SimulationComparison.ReplicationSummary::p99LatencyMicros).toArray();
+        return new SimulationComparison(request.replications(), request.seedStride(), request.warmUpMicros(),
                 mean(throughput), stddev(throughput), mean(p95), stddev(p95),
-                summaries.stream().mapToDouble(SimulationComparison.ReplicationSummary::p99LatencyMicros).average().orElse(0),
+                mean(p99),
                 summaries.stream().mapToLong(SimulationComparison.ReplicationSummary::peakBacklog).average().orElse(0),
                 summaries.stream().mapToLong(SimulationComparison.ReplicationSummary::rejectedJobs).average().orElse(0),
                 summaries.stream().mapToDouble(SimulationComparison.ReplicationSummary::workerUtilization).average().orElse(0),
+                ConfidenceInterval.of("throughputPerSecond", throughput),
+                ConfidenceInterval.of("p95LatencyMicros", p95),
+                ConfidenceInterval.of("p99LatencyMicros", p99),
                 summaries);
     }
 

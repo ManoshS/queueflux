@@ -42,7 +42,7 @@ class DefaultSimulationEngineTest {
     @Test void traceLimitDoesNotChangeMetrics() {
         var engine = new DefaultSimulationEngine();
         var full = engine.run(SimulationRequest.defaults(scenario()));
-        var quiet = engine.run(new SimulationRequest(scenario(), 100_000, 100_000, 0));
+        var quiet = engine.run(new SimulationRequest(scenario(), 100_000, 100_000, 0, 0));
         assertThat(quiet.trace()).isEmpty();
         assertThat(quiet.completedJobs()).isEqualTo(full.completedJobs());
         assertThat(quiet.workerUtilization()).isEqualTo(full.workerUtilization());
