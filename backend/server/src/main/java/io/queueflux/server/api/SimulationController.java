@@ -1,6 +1,7 @@
 package io.queueflux.server.api;
 
 import io.queueflux.engine.api.*;
+import io.queueflux.engine.calibration.TelemetryCalibrator;
 import io.queueflux.model.scenario.ScenarioDefinition;
 import io.queueflux.server.service.SimulationRunService;
 import java.net.URI;
@@ -19,10 +20,13 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public class SimulationController {
     private final SimulationEngine engine;
     private final SimulationRunService runService;
+    private final TelemetryCalibrator calibrator;
 
-    public SimulationController(SimulationEngine engine, SimulationRunService runService) {
+    public SimulationController(SimulationEngine engine, SimulationRunService runService,
+            TelemetryCalibrator calibrator) {
         this.engine = engine;
         this.runService = runService;
+        this.calibrator = calibrator;
     }
 
     /** Backwards-compatible synchronous endpoint for short experiments. */
@@ -93,6 +97,12 @@ public class SimulationController {
                 ConfidenceInterval.of("p95LatencyMicros", p95),
                 ConfidenceInterval.of("p99LatencyMicros", p99),
                 summaries);
+    }
+
+    /** Fits calibration parameters from observed telemetry, optionally with a comparison simulation run. */
+    @PostMapping("/calibrate")
+    public CalibrationReport calibrate(@RequestBody CalibrationRequest request) {
+        return calibrator.calibrate(request.queueId(), request.windows(), request.compare(), request.seed());
     }
 
     private static double mean(double[] values) {
