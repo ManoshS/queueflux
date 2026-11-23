@@ -32,6 +32,14 @@ jobs:
       - name: Build and test backend
         run: mvn -B -ntp verify
 
+      - name: Build API Docker image
+        run: docker build --file backend/server/Dockerfile --tag queueflux-api:ci .
+
+      - name: Verify API image uses a non-root identity
+        run: |
+          test "$(docker run --rm --entrypoint id queueflux-api:ci -u)" = "10001"
+          test "$(docker run --rm --entrypoint id queueflux-api:ci -g)" = "10001"
+
       - name: Upload backend JARs
         if: success()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
