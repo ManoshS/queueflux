@@ -45,6 +45,19 @@ describe('validate()', () => {
     assert.equal(result.valid, false);
   });
 
+  it('stops after the first validation error to bound error accumulation', () => {
+    const bad = clone(BASE);
+    bad.name = 42;
+    bad.durationMicros = 0;
+    bad.seed = 'not-an-integer';
+    bad.queues[0].discipline = 'LIFO';
+
+    const result = validate(bad);
+
+    assert.equal(result.valid, false);
+    assert.equal(result.errors.length, 1);
+  });
+
   it('rejects unknown discipline', () => {
     const bad = clone(BASE);
     bad.queues[0].discipline = 'LIFO';
