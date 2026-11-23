@@ -73,6 +73,7 @@ jobs:
         run: |
           semgrep scan \
             --config auto \
+            --error \
             --exclude '**/target/**' \
             --exclude 'web/node_modules/**' \
             --exclude 'web/coverage/**' \
@@ -89,10 +90,6 @@ jobs:
           report = json.loads(Path("semgrep.sarif").read_text(encoding="utf-8"))
           findings = []
           for run in report.get("runs", []):
-              rules = {
-                  rule.get("id"): rule
-                  for rule in run.get("tool", {}).get("driver", {}).get("rules", [])
-              }
               for result in run.get("results", []):
                   locations = result.get("locations", [])
                   physical = locations[0].get("physicalLocation", {}) if locations else {}
@@ -100,8 +97,7 @@ jobs:
                   region = physical.get("region", {})
                   line = region.get("startLine", "?")
                   rule_id = result.get("ruleId", "unknown-rule")
-                  rule = rules.get(rule_id, {})
-                  message = result.get("message", {}).get("text", "").replace("\\n", " ")
+                  message = result.get("message", {}).get("text", "").replace("\n", " ")
                   findings.append((rule_id, artifact, line, message))
 
           summary = [f"Semgrep reported {len(findings)} finding(s)."]
@@ -117,7 +113,7 @@ jobs:
               print("No Semgrep findings.")
 
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as output:
-              output.write("\\n".join(summary) + "\\n")
+              output.write("\n".join(summary) + "\n")
           PY
       - name: Upload Semgrep findings to GitHub code scanning
         if: ${{ always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && hashFiles('semgrep.sarif') != '' }}
