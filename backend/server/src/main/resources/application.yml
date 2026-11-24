@@ -2,7 +2,7 @@ spring:
   application:
     name: queueflux-api
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/queueflux}
+    url: ${DB_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:queueflux}}
     username: ${DB_USERNAME:queueflux}
     password: ${DB_PASSWORD:queueflux-dev}
     hikari:
