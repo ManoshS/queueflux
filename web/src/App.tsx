@@ -4,6 +4,7 @@ import { Activity, ArrowUpRight, Clock3, Gauge, Play, RotateCcw, Server, Zap } f
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { Result, Scenario } from './types';
 import { buildChartData, formatMetric, parseScenarioJson } from './utils/simulation';
+import { getScenarioPreset, SCENARIO_PRESETS } from './utils/presets';
 
 const initial: Scenario = {
   schemaVersion: 1, name: 'Email notification workload', durationMicros: 60_000_000, seed: 12345,
@@ -23,9 +24,20 @@ export default function App() {
   const [progress, setProgress] = useState('');
   const [comparison, setComparison] = useState<import('./types').ComparisonResult | null>(null);
   const [comparing, setComparing] = useState(false);
+  const [selectedPreset, setSelectedPreset] = useState('');
   useEffect(() => setScenarioJson(JSON.stringify(scenario, null, 2)), [scenario]);
   const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8080';
   const chartData = useMemo(() => result ? buildChartData(result.trace) : [], [result]);
+
+  function applyPreset(id: string) {
+    if (!id) return;
+    setScenario(getScenarioPreset(id));
+    setSelectedPreset('');
+    setResult(null);
+    setComparison(null);
+    setError('');
+    setJsonError('');
+  }
 
   function updatePool(patch: Partial<Scenario['workerPools'][number]>) {
     setScenario(current => ({ ...current, workerPools: [{ ...current.workerPools[0], ...patch }] }));
@@ -95,8 +107,9 @@ export default function App() {
   return <main className="shell">
     <header className="topbar"><div className="brand"><div className="brand-mark"><Activity size={19}/></div><span>queue<span className="brand-accent">flux</span></span><span className="version">LAB / 0.1</span></div><div className="top-meta"><span className="live-dot"/> LOCAL EXPERIMENT</div></header>
     <section className="hero"><div><div className="eyebrow"><span className="eyebrow-line"/> DISCRETE-EVENT WORKLOAD LAB</div><h1>Find the breaking point.<br/><em>Before production does.</em></h1><p className="hero-copy">Design a workload, tune worker capacity, and see how your queue behaves under pressure — with repeatable, seeded experiments.</p></div><div className="hero-stamp"><div className="stamp-orbit"><Zap size={25}/></div><span>VIRTUAL TIME</span><strong>NO SLEEP. JUST EVENTS.</strong></div></section>
-    <div className="workspace"><section className="panel config-panel"><div className="panel-head"><div><div className="section-kicker">01 / EXPERIMENT SETUP</div><h2>Configure workload</h2></div><button className="icon-button" title="Reset defaults" onClick={() => {setScenario(initial);setResult(null);setError('');}}><RotateCcw size={16}/></button></div>
+    <div className="workspace"><section className="panel config-panel"><div className="panel-head"><div><div className="section-kicker">01 / EXPERIMENT SETUP</div><h2>Configure workload</h2></div><button className="icon-button" title="Reset defaults" onClick={() => {setScenario(initial);setSelectedPreset('');setResult(null);setError('');setComparison(null);}}><RotateCcw size={16}/></button></div>
       <label className="field-label">SCENARIO NAME<input value={scenario.name} onChange={e=>setScenario({...scenario,name:e.target.value})}/></label>
+      <label className="field-label">SCENARIO PRESET <span>ready-to-run examples</span><select aria-label="Scenario preset" value={selectedPreset} onChange={e=>applyPreset(e.target.value)}><option value="">Choose a preset…</option>{SCENARIO_PRESETS.map(preset=><option key={preset.id} value={preset.id}>{preset.name} — {preset.description}</option>)}</select></label>
       <div className="field-grid"><label className="field-label">ARRIVAL RATE <span>jobs / sec</span><input type="number" min="0.1" step="0.5" value={scenario.workloads[0].arrivals.ratePerSecond} onChange={e=>updateWorkload({ratePerSecond:Math.max(0.1,Number(e.target.value))})}/></label><label className="field-label">WORKERS<input type="number" min="1" max="500" value={scenario.workerPools[0].workerCount} onChange={e=>updatePool({workerCount:Math.max(1,Math.min(500,Number(e.target.value)))})}/></label></div>
       <div className="field-grid"><label className="field-label">CONCURRENCY / WORKER<input type="number" min="1" max="100" value={scenario.workerPools[0].concurrencyPerWorker} onChange={e=>updatePool({concurrencyPerWorker:Math.max(1,Math.min(100,Number(e.target.value)))})}/></label><label className="field-label">MEAN SERVICE TIME <span>ms</span><input type="number" min="1" value={scenario.workerPools[0].serviceTime.meanMicros/1000} onChange={e=>updatePool({serviceTime:{distribution:'EXPONENTIAL',constantMicros:Math.max(1,Number(e.target.value))*1000,meanMicros:Math.max(1,Number(e.target.value))*1000}})}/></label></div>
       <div className="field-grid"><label className="field-label">DURATION <span>seconds</span><input type="number" min="1" max="3600" value={scenario.durationMicros/1_000_000} onChange={e=>{const duration=Math.max(1,Number(e.target.value))*1_000_000;setScenario(current=>({...current,durationMicros:duration,workloads:current.workloads.map(workload=>({...workload,endMicros:duration}))}));}}/></label><label className="field-label">RANDOM SEED<input type="number" value={scenario.seed} onChange={e=>setScenario({...scenario,seed:Number(e.target.value)})}/></label></div>
