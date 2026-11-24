@@ -1,19 +1,53 @@
+databases:
+  - name: queueflux-db
+    plan: free
+    region: singapore
+    postgresMajorVersion: "18"
+    databaseName: queueflux_db
+    user: queueflux_db_user
+
 services:
   - type: web
     name: queueflux-api
     runtime: docker
     plan: free
+    region: singapore
+    branch: deploy/render-free
     dockerfilePath: ./backend/server/Dockerfile
     dockerContext: .
     healthCheckPath: /actuator/health
     envVars:
       - key: JAVA_TOOL_OPTIONS
         value: "-XX:MaxRAMPercentage=65.0 -XX:InitialRAMPercentage=20.0 -XX:+UseSerialGC"
-      - key: DB_URL
-        sync: false
+      - key: DB_HOST
+        fromDatabase:
+          name: queueflux-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: queueflux-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: queueflux-db
+          property: database
       - key: DB_USERNAME
-        sync: false
+        fromDatabase:
+          name: queueflux-db
+          property: user
       - key: DB_PASSWORD
-        sync: false
+        fromDatabase:
+          name: queueflux-db
+          property: password
       - key: APP_CORS_ALLOWED_ORIGINS
-        sync: false
+        value: https://queueflux-web.onrender.com
+
+  - type: web
+    name: queueflux-web
+    runtime: static
+    branch: deploy/render-free
+    buildCommand: cd web && npm ci && npm run build
+    staticPublishPath: web/dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://queueflux-api.onrender.com
