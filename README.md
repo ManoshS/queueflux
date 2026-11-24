@@ -15,7 +15,7 @@ QueueFlux is an open-source, discrete-event simulation platform for studying how
 - **Multiple queues:** independent queue/worker-pool pairs in one scenario.
 - **Experiment runs:** synchronous API, durable asynchronous runs, PostgreSQL persistence, run-status polling, and Server-Sent Events progress.
 - **Stochastic comparisons:** run multiple seeded replications and compare mean and standard deviation for key metrics.
-- **Web workspace:** React + TypeScript UI with a form for common inputs and an advanced JSON scenario editor.
+- **Web workspace:** React + TypeScript UI with common-input controls, reusable steady-state/saturation/burst presets, and an advanced JSON scenario editor.
 
 ## Architecture
 
