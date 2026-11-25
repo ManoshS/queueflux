@@ -1,7 +1,9 @@
 import Ajv from 'ajv';
 import { SCENARIO_SCHEMA } from './schema.js';
 
-const ajv = new Ajv({ allErrors: true });
+// Keep validation fail-fast so hostile input cannot force allocation of an
+// unbounded list of schema errors.
+const ajv = new Ajv({ allErrors: false });
 
 /** @type {import('ajv').ValidateFunction} */
 const validateFn = ajv.compile(SCENARIO_SCHEMA);

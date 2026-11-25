@@ -73,11 +73,48 @@ jobs:
         run: |
           semgrep scan \
             --config auto \
+            --error \
             --exclude '**/target/**' \
             --exclude 'web/node_modules/**' \
             --exclude 'web/coverage/**' \
             --sarif \
             --output semgrep.sarif
+      - name: Print Semgrep finding details
+        if: ${{ always() && hashFiles('semgrep.sarif') != '' }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          report = json.loads(Path("semgrep.sarif").read_text(encoding="utf-8"))
+          findings = []
+          for run in report.get("runs", []):
+              for result in run.get("results", []):
+                  locations = result.get("locations", [])
+                  physical = locations[0].get("physicalLocation", {}) if locations else {}
+                  artifact = physical.get("artifactLocation", {}).get("uri", "unknown")
+                  region = physical.get("region", {})
+                  line = region.get("startLine", "?")
+                  rule_id = result.get("ruleId", "unknown-rule")
+                  message = result.get("message", {}).get("text", "").replace("\n", " ")
+                  findings.append((rule_id, artifact, line, message))
+
+          summary = [f"Semgrep reported {len(findings)} finding(s)."]
+          if findings:
+              summary.append("")
+              for rule_id, artifact, line, message in findings:
+                  detail = f"- `{rule_id}` — `{artifact}:{line}` — {message}"
+                  summary.append(detail)
+                  print(detail)
+          else:
+              summary.append("")
+              summary.append("No findings.")
+              print("No Semgrep findings.")
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as output:
+              output.write("\n".join(summary) + "\n")
+          PY
       - name: Upload Semgrep findings to GitHub code scanning
         if: ${{ always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && hashFiles('semgrep.sarif') != '' }}
         uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
